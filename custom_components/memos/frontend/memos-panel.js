@@ -1,4 +1,4 @@
-console.info("[Memos] Panel loaded v0.2.2.b2 with Image Upload & Smart Composer");
+console.info("[Memos] Panel loaded v0.2.2.b3 with Image Lightbox Modal & Smart Composer");
 
 class MemosPanel extends HTMLElement {
   constructor() {
@@ -14,6 +14,32 @@ class MemosPanel extends HTMLElement {
     this._draftContent = "";
     this._editingMemoName = null;
     this._selectedFiles = [];
+    this._lightboxImageUrl = null;
+  }
+
+  connectedCallback() {
+    this._onKeyDownGlobal = (e) => {
+      if (e.key === "Escape" && this._lightboxImageUrl) {
+        this._closeLightbox();
+      }
+    };
+    window.addEventListener("keydown", this._onKeyDownGlobal);
+  }
+
+  disconnectedCallback() {
+    if (this._onKeyDownGlobal) {
+      window.removeEventListener("keydown", this._onKeyDownGlobal);
+    }
+  }
+
+  _openLightbox(src) {
+    this._lightboxImageUrl = src;
+    this._render();
+  }
+
+  _closeLightbox() {
+    this._lightboxImageUrl = null;
+    this._render();
   }
 
   set hass(hass) {
@@ -836,6 +862,12 @@ class MemosPanel extends HTMLElement {
           height: 100%;
           object-fit: cover;
           display: block;
+          cursor: zoom-in;
+          transition: transform 0.15s ease;
+        }
+
+        .preview-thumb-img:hover {
+          transform: scale(1.05);
         }
 
         .preview-thumb-del {
@@ -1218,6 +1250,102 @@ class MemosPanel extends HTMLElement {
           border-radius: 8px;
           border: 1px solid rgba(255, 255, 255, 0.1);
           background-color: rgba(0, 0, 0, 0.2);
+          cursor: zoom-in;
+          transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .memo-img:hover {
+          transform: scale(1.02);
+          border-color: rgba(255, 255, 255, 0.35);
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+        }
+
+        /* Fullscreen Lightbox Modal */
+        .lightbox-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 99999;
+          background-color: rgba(10, 10, 14, 0.88);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: lightboxFadeIn 0.2s ease-out forwards;
+          cursor: zoom-out;
+          padding: 24px;
+          box-sizing: border-box;
+        }
+
+        @keyframes lightboxFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        .lightbox-container {
+          position: relative;
+          max-width: 92vw;
+          max-height: 90vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: lightboxPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          cursor: default;
+        }
+
+        @keyframes lightboxPopIn {
+          from {
+            transform: scale(0.92);
+            opacity: 0;
+          }
+          to {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+
+        .lightbox-img {
+          max-width: 92vw;
+          max-height: 88vh;
+          object-fit: contain;
+          border-radius: 8px;
+          box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75);
+          display: block;
+          user-select: none;
+        }
+
+        .lightbox-close-btn {
+          position: fixed;
+          top: 20px;
+          right: 24px;
+          z-index: 100000;
+          background: rgba(30, 30, 36, 0.8);
+          border: 1px solid rgba(255, 255, 255, 0.25);
+          color: #ffffff;
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+          transition: all 0.18s ease;
+        }
+
+        .lightbox-close-btn:hover {
+          background-color: #ef4444;
+          border-color: #ef4444;
+          transform: scale(1.1);
+        }
+
+        .lightbox-close-btn svg {
+          width: 22px;
+          height: 22px;
+          fill: currentColor;
         }
 
         svg {
@@ -1351,6 +1479,21 @@ class MemosPanel extends HTMLElement {
                 .join("")
         }
       </div>
+
+      ${
+        this._lightboxImageUrl
+          ? `
+          <div class="lightbox-overlay" id="lightbox-overlay" title="클릭 시 닫기">
+            <button class="lightbox-close-btn" id="lightbox-close-btn" title="닫기 (ESC)">
+              <svg viewBox="0 0 24 24"><path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/></svg>
+            </button>
+            <div class="lightbox-container" id="lightbox-container">
+              <img class="lightbox-img" id="lightbox-img" src="${this._lightboxImageUrl}" alt="확대 이미지" />
+            </div>
+          </div>
+          `
+          : ""
+      }
     `;
 
     // Direct property assignment for textarea value guarantees zero HTML escaping/newline corruption!
@@ -1486,6 +1629,52 @@ class MemosPanel extends HTMLElement {
         }
       };
     });
+
+    // Image click -> Lightbox Modal
+    shadow.querySelectorAll(".memo-img").forEach((img) => {
+      img.onclick = (e) => {
+        e.stopPropagation();
+        this._openLightbox(img.src);
+      };
+    });
+
+    shadow.querySelectorAll(".preview-thumb-img").forEach((img) => {
+      img.onclick = (e) => {
+        e.stopPropagation();
+        this._openLightbox(img.src);
+      };
+    });
+
+    // Lightbox close interactions
+    const lightboxCloseBtn = shadow.getElementById("lightbox-close-btn");
+    const lightboxOverlay = shadow.getElementById("lightbox-overlay");
+    const lightboxContainer = shadow.getElementById("lightbox-container");
+
+    if (lightboxCloseBtn) {
+      lightboxCloseBtn.onclick = (e) => {
+        e.stopPropagation();
+        this._closeLightbox();
+      };
+    }
+
+    if (lightboxOverlay) {
+      lightboxOverlay.onclick = (e) => {
+        this._closeLightbox();
+      };
+    }
+
+    if (lightboxContainer) {
+      lightboxContainer.onclick = (e) => {
+        e.stopPropagation();
+      };
+    }
+
+    const lightboxImg = shadow.getElementById("lightbox-img");
+    if (lightboxImg) {
+      lightboxImg.onclick = (e) => {
+        e.stopPropagation();
+      };
+    }
 
     // Restore scroll position
     this.scrollTop = prevScrollTop;
