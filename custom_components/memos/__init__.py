@@ -118,7 +118,7 @@ class MemosUploadView(HomeAssistantView):
         """Handle POST file upload."""
         entries = self.hass.data.get(DOMAIN, {})
         if not entries:
-            return self.json({"error": "Memos is not configured"}, status=400)
+            return self.json({"error": "Memos is not configured"}, status_code=400)
 
         client: MemosApiClient = next(iter(entries.values()))
 
@@ -150,7 +150,7 @@ class MemosUploadView(HomeAssistantView):
                 data = base64.b64decode(b64_data)
 
             if not data:
-                return self.json({"error": "No file data received"}, status=400)
+                return self.json({"error": "No file data received"}, status_code=400)
 
             res = await client.async_upload_resource(
                 filename=filename,
@@ -160,10 +160,10 @@ class MemosUploadView(HomeAssistantView):
             return self.json({"success": True, "resource": res})
         except MemosApiError as err:
             _LOGGER.error("Memos API upload error: %s", err)
-            return self.json({"error": str(err)}, status=500)
+            return self.json({"error": str(err)}, status_code=500)
         except Exception as err:
             _LOGGER.exception("Unexpected error uploading file to Memos: %s", err)
-            return self.json({"error": f"Internal upload error: {err}"}, status=500)
+            return self.json({"error": f"Internal upload error: {err}"}, status_code=500)
 
 
 class MemosCreateView(HomeAssistantView):
@@ -181,17 +181,17 @@ class MemosCreateView(HomeAssistantView):
         """Handle POST request to create a memo."""
         entries = self.hass.data.get(DOMAIN, {})
         if not entries:
-            return self.json({"error": "Memos is not configured"}, status=400)
+            return self.json({"error": "Memos is not configured"}, status_code=400)
 
         try:
             body = await request.json()
         except Exception:
-            return self.json({"error": "Invalid JSON body"}, status=400)
+            return self.json({"error": "Invalid JSON body"}, status_code=400)
 
         content = (body.get("content") or "").strip()
         resource_names = body.get("resource_names") or []
         if not content and not resource_names:
-            return self.json({"error": "Content or image cannot be empty"}, status=400)
+            return self.json({"error": "Content or image cannot be empty"}, status_code=400)
 
         visibility = body.get("visibility", "PRIVATE")
         client: MemosApiClient = next(iter(entries.values()))
@@ -203,7 +203,7 @@ class MemosCreateView(HomeAssistantView):
             )
             return self.json({"success": True, "memo": memo})
         except MemosApiError as err:
-            return self.json({"error": str(err)}, status=500)
+            return self.json({"error": str(err)}, status_code=500)
 
 
 class MemosUpdateView(HomeAssistantView):
@@ -221,25 +221,25 @@ class MemosUpdateView(HomeAssistantView):
         """Handle POST request to update a memo."""
         entries = self.hass.data.get(DOMAIN, {})
         if not entries:
-            return self.json({"error": "Memos is not configured"}, status=400)
+            return self.json({"error": "Memos is not configured"}, status_code=400)
 
         try:
             body = await request.json()
         except Exception:
-            return self.json({"error": "Invalid JSON body"}, status=400)
+            return self.json({"error": "Invalid JSON body"}, status_code=400)
 
         name = (body.get("name") or "").strip()
         content = (body.get("content") or "").strip()
         visibility = body.get("visibility")
         if not name or not content:
-            return self.json({"error": "Name and content are required"}, status=400)
+            return self.json({"error": "Name and content are required"}, status_code=400)
 
         client: MemosApiClient = next(iter(entries.values()))
         try:
             memo = await client.async_update_memo(name=name, content=content, visibility=visibility)
             return self.json({"success": True, "memo": memo})
         except MemosApiError as err:
-            return self.json({"error": str(err)}, status=500)
+            return self.json({"error": str(err)}, status_code=500)
 
 
 class MemosDeleteView(HomeAssistantView):
@@ -257,23 +257,23 @@ class MemosDeleteView(HomeAssistantView):
         """Handle POST request to delete a memo."""
         entries = self.hass.data.get(DOMAIN, {})
         if not entries:
-            return self.json({"error": "Memos is not configured"}, status=400)
+            return self.json({"error": "Memos is not configured"}, status_code=400)
 
         try:
             body = await request.json()
         except Exception:
-            return self.json({"error": "Invalid JSON body"}, status=400)
+            return self.json({"error": "Invalid JSON body"}, status_code=400)
 
         name = (body.get("name") or "").strip()
         if not name:
-            return self.json({"error": "Name is required"}, status=400)
+            return self.json({"error": "Name is required"}, status_code=400)
 
         client: MemosApiClient = next(iter(entries.values()))
         try:
             await client.async_delete_memo(name=name)
             return self.json({"success": True, "name": name})
         except MemosApiError as err:
-            return self.json({"error": str(err)}, status=500)
+            return self.json({"error": str(err)}, status_code=500)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -335,7 +335,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             config={
                 "_panel_custom": {
                     "name": PANEL_NAME,
-                    "module_url": f"{PANEL_STATIC_PATH}/memos-panel.js?v=0.2.2",
+                    "module_url": f"{PANEL_STATIC_PATH}/memos-panel.js?v=0.2.2.b1",
                 }
             },
             require_admin=False,

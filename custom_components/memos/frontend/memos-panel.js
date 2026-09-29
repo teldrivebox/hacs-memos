@@ -1,4 +1,4 @@
-console.info("[Memos] Panel loaded v0.2.2 with Image Upload & Smart Composer");
+console.info("[Memos] Panel loaded v0.2.2.b1 with Image Upload & Smart Composer");
 
 class MemosPanel extends HTMLElement {
   constructor() {
