@@ -1,4 +1,4 @@
-console.info("[Memos] Panel loaded v0.1.15 with Smart List & Toolbar");
+console.info("[Memos] Panel loaded v0.2.1 with Image Upload & Smart Composer");
 
 class MemosPanel extends HTMLElement {
   constructor() {
@@ -13,6 +13,7 @@ class MemosPanel extends HTMLElement {
     this._error = null;
     this._draftContent = "";
     this._editingMemoName = null;
+    this._selectedFiles = [];
   }
 
   set hass(hass) {
@@ -87,7 +88,8 @@ class MemosPanel extends HTMLElement {
   async _handleComposerSubmit() {
     const inputEl = this.shadowRoot.getElementById("composer-input");
     const content = inputEl ? inputEl.value.trim() : "";
-    if (!content || this._submitting) return;
+    const hasFiles = this._selectedFiles && this._selectedFiles.length > 0;
+    if ((!content && !hasFiles) || this._submitting) return;
 
     if (this._editingMemoName) {
       await this._submitUpdateMemo(this._editingMemoName, content);
@@ -99,16 +101,57 @@ class MemosPanel extends HTMLElement {
   async _submitCreateMemo(content) {
     this._submitting = true;
     const saveBtn = this.shadowRoot.getElementById("save-btn");
+    const hasFiles = this._selectedFiles && this._selectedFiles.length > 0;
+
     if (saveBtn) {
-      saveBtn.innerText = "저장 중...";
+      saveBtn.innerText = hasFiles ? "사진 업로드 중..." : "저장 중...";
       saveBtn.disabled = true;
     }
 
     try {
+      const uploadedResourceNames = [];
+
+      // 1. Upload attached images first if any
+      if (hasFiles) {
+        for (let i = 0; i < this._selectedFiles.length; i++) {
+          const file = this._selectedFiles[i];
+          if (saveBtn) {
+            saveBtn.innerText = `사진 업로드 (${i + 1}/${this._selectedFiles.length})...`;
+          }
+          const formData = new FormData();
+          formData.append("file", file, file.name);
+
+          const uploadResp = await this._hass.fetchWithAuth("/api/memos/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!uploadResp.ok) {
+            throw new Error(`사진 업로드 실패 (${uploadResp.status})`);
+          }
+
+          const uploadData = await uploadResp.json();
+          if (uploadData.error) {
+            throw new Error(uploadData.error);
+          }
+
+          if (uploadData.resource && uploadData.resource.name) {
+            uploadedResourceNames.push(uploadData.resource.name);
+          }
+        }
+      }
+
+      if (saveBtn) saveBtn.innerText = "메모 저장 중...";
+
+      // 2. Create memo with content and resource_names
       const response = await this._hass.fetchWithAuth("/api/memos/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, visibility: this._currentVisibility }),
+        body: JSON.stringify({
+          content,
+          visibility: this._currentVisibility,
+          resource_names: uploadedResourceNames,
+        }),
       });
 
       if (!response.ok) {
@@ -120,7 +163,13 @@ class MemosPanel extends HTMLElement {
         throw new Error(resData.error);
       }
 
+      // Cleanup preview URLs
+      for (const f of this._selectedFiles) {
+        if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+      }
+
       this._draftContent = "";
+      this._selectedFiles = [];
       this._currentVisibility = this._defaultVisibility;
       await this._fetchFeed();
     } catch (err) {
@@ -736,6 +785,55 @@ class MemosPanel extends HTMLElement {
           margin: 0 4px;
         }
 
+        .composer-attachments-preview {
+          display: flex;
+          gap: 8px;
+          padding: 8px 0 4px 0;
+          overflow-x: auto;
+        }
+
+        .preview-thumb-wrap {
+          position: relative;
+          width: 58px;
+          height: 58px;
+          flex-shrink: 0;
+          border-radius: 6px;
+          overflow: hidden;
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          background-color: rgba(0, 0, 0, 0.3);
+        }
+
+        .preview-thumb-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .preview-thumb-del {
+          position: absolute;
+          top: 2px;
+          right: 2px;
+          background: rgba(0, 0, 0, 0.7);
+          color: #ffffff;
+          border: none;
+          border-radius: 50%;
+          width: 18px;
+          height: 18px;
+          font-size: 12px;
+          line-height: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: background-color 0.15s;
+          padding: 0;
+        }
+
+        .preview-thumb-del:hover {
+          background-color: #ff5252;
+        }
+
         .composer-actions {
           display: flex;
           align-items: center;
@@ -1146,6 +1244,27 @@ class MemosPanel extends HTMLElement {
             placeholder="${isEditing ? '메모 내용을 수정하세요...' : '떠오르는 생각을 적어보세요... (Ctrl + Enter로 저장)'}"
           ></textarea>
 
+          ${
+            this._selectedFiles && this._selectedFiles.length > 0
+              ? `
+              <div class="composer-attachments-preview">
+                ${this._selectedFiles
+                  .map(
+                    (file, idx) => `
+                    <div class="preview-thumb-wrap" title="${file.name}">
+                      <img class="preview-thumb-img" src="${file.previewUrl}" alt="${file.name}" />
+                      <button class="preview-thumb-del" data-idx="${idx}" title="삭제">×</button>
+                    </div>
+                  `
+                  )
+                  .join("")}
+              </div>
+              `
+              : ""
+          }
+
+          <input type="file" id="image-file-input" accept="image/*" multiple style="display:none;" />
+
           <div class="composer-toolbar">
             <button class="toolbar-btn text-btn" id="tb-h1" title="대제목 (# )">#</button>
             <button class="toolbar-btn text-btn" id="tb-h2" title="중제목 (## )">##</button>
@@ -1168,6 +1287,10 @@ class MemosPanel extends HTMLElement {
             </button>
             <button class="toolbar-btn" id="tb-link" title="링크 추가">
               <svg viewBox="0 0 24 24"><path d="M3.9,12C3.9,10.29 5.29,8.9 7,8.9H11V7H7A5,5 0 0,0 2,12A5,5 0 0,0 7,17H11V15.1H7C5.29,15.1 3.9,13.71 3.9,12M8,13H16V11H8V13M17,7H13V8.9H17C18.71,8.9 20.1,10.29 20.1,12C20.1,13.71 18.71,15.1 17,15.1H13V17H17A5,5 0 0,0 22,12A5,5 0 0,0 17,7Z"/></svg>
+            </button>
+            <div class="toolbar-divider"></div>
+            <button class="toolbar-btn" id="tb-image" title="사진/이미지 첨부">
+              <svg viewBox="0 0 24 24"><path d="M19,19H5V5H19M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M13.96,12.29L11.21,15.83L9.25,13.47L6.5,17H17.5L13.96,12.29Z"/></svg>
             </button>
           </div>
 
@@ -1243,6 +1366,39 @@ class MemosPanel extends HTMLElement {
 
     const tbLink = shadow.getElementById("tb-link");
     if (tbLink) tbLink.onclick = () => this._insertMarkdown("[", "](https://)");
+
+    // Image file selection listeners
+    const imageInput = shadow.getElementById("image-file-input");
+    const tbImage = shadow.getElementById("tb-image");
+    if (tbImage && imageInput) {
+      tbImage.onclick = () => imageInput.click();
+    }
+    if (imageInput) {
+      imageInput.onchange = (e) => {
+        const files = Array.from(e.target.files || []);
+        for (const file of files) {
+          file.previewUrl = URL.createObjectURL(file);
+          this._selectedFiles.push(file);
+        }
+        imageInput.value = "";
+        this._render();
+      };
+    }
+
+    // Attach listeners for deleting attached preview
+    shadow.querySelectorAll(".preview-thumb-del").forEach((delBtn) => {
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        const idx = parseInt(delBtn.getAttribute("data-idx"), 10);
+        if (!isNaN(idx) && idx >= 0 && idx < this._selectedFiles.length) {
+          const removed = this._selectedFiles.splice(idx, 1)[0];
+          if (removed && removed.previewUrl) {
+            URL.revokeObjectURL(removed.previewUrl);
+          }
+          this._render();
+        }
+      };
+    });
 
     // Visibility select change
     const visSelect = shadow.getElementById("composer-visibility");

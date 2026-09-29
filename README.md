@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-orange.svg" alt="HACS Custom" /></a>
   <a href="https://usememos.com"><img src="https://img.shields.io/badge/Memos-v0.22+-blue.svg" alt="Memos Support" /></a>
-  <img src="https://img.shields.io/badge/version-0.1.15-green.svg" alt="Version" />
+  <img src="https://img.shields.io/badge/version-0.2.1-green.svg" alt="Version" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" /></a>
   <img src="https://img.shields.io/badge/Powered%20by-Antigravity-4285F4?logo=google&logoColor=white" alt="Powered by Antigravity" />
 </p>
@@ -71,7 +71,7 @@
 ---
 
 ### 🗺️ Roadmap
-- [ ] 📎 Upload images and attachments directly from the HA composer
+- [x] 📎 Upload images directly from the HA composer (v0.2.1)
 - [ ] 📊 Lovelace Dashboard Card & Sensor entities (`sensor.memos_total_count`, recent memos)
 - [ ] 🔔 Notification & Automation service (`memos.create` service call)
 - [ ] 🏷️ Tag filtering chips & search
@@ -124,7 +124,7 @@
 ---
 
 ### 🗺️ 향후 개발 로드맵
-- [ ] 📎 HA 에디터에서 이미지 및 파일 직접 업로드 기능
+- [x] 📎 HA 에디터에서 이미지 직접 업로드 기능 (v0.2.1 완료)
 - [ ] 📊 Lovelace 대시보드 카드 및 메모 카운트/최근 메모 센서 (`sensor.memos_*`)
 - [ ] 🔔 HA 자동화용 알림 서비스 등록 (`memos.create` 서비스)
 - [ ] 🏷️ 태그 칩 필터링 및 실시간 검색 기능

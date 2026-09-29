@@ -192,14 +192,94 @@ class MemosApiClient:
             data = await resp.read()
             return data, content_type
 
-    async def async_create_memo(self, content: str, visibility: str = "PRIVATE") -> dict[str, Any]:
-        """Create a new memo."""
-        payload = {
+    async def async_upload_resource(
+        self,
+        filename: str,
+        content_type: str,
+        data: bytes,
+    ) -> dict[str, Any]:
+        """Upload a file resource/attachment to Memos."""
+        url_resources = f"{self.base_url}/resources"
+        url_blob = f"{self.base_url}/resource/blob"
+        headers = {"Authorization": f"Bearer {self._token}"}
+
+        # Try standard /api/v1/resources first
+        form = aiohttp.FormData()
+        form.add_field(
+            name="file",
+            value=data,
+            filename=filename,
+            content_type=content_type,
+        )
+
+        try:
+            async with self._session.post(
+                url_resources,
+                headers=headers,
+                data=form,
+                timeout=aiohttp.ClientTimeout(total=60),
+            ) as resp:
+                if resp.status in (200, 201):
+                    return await resp.json()
+                _LOGGER.debug(
+                    "POST /resources returned %s, trying fallback /resource/blob",
+                    resp.status,
+                )
+        except Exception as err:
+            _LOGGER.debug("POST /resources failed: %s, trying fallback", err)
+
+        # Fallback to /api/v1/resource/blob
+        form_fallback = aiohttp.FormData()
+        form_fallback.add_field(
+            name="file",
+            value=data,
+            filename=filename,
+            content_type=content_type,
+        )
+        async with self._session.post(
+            url_blob,
+            headers=headers,
+            data=form_fallback,
+            timeout=aiohttp.ClientTimeout(total=60),
+        ) as resp:
+            if resp.status not in (200, 201):
+                text = await resp.text()
+                raise MemosApiError(f"Upload failed (HTTP {resp.status}): {text}")
+            return await resp.json()
+
+    async def async_create_memo(
+        self,
+        content: str,
+        visibility: str = "PRIVATE",
+        resource_names: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Create a new memo with optional attached resources."""
+        payload: dict[str, Any] = {
             "content": content,
             "visibility": visibility,
         }
+        if resource_names:
+            # Multi-version compatibility: provide both resourceIdList and resources
+            payload["resources"] = [{"name": r} for r in resource_names]
+            payload["resourceIdList"] = resource_names
+
         res = await self._request("POST", API_PATH_MEMOS, json=payload)
-        return res or {}
+        memo = res or {}
+
+        # SetMemoAttachments for Memos v0.24+ if applicable
+        if memo.get("name") and resource_names:
+            try:
+                clean_name = memo["name"].lstrip("/")
+                patch_url = f"/{clean_name}/attachments"
+                await self._request(
+                    "PATCH",
+                    patch_url,
+                    json={"attachments": [{"name": r} for r in resource_names]},
+                )
+            except Exception as err:
+                _LOGGER.debug("Could not patch attachments on new memo: %s", err)
+
+        return memo
 
     async def async_update_memo(
         self,

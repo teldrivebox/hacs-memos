@@ -103,6 +103,57 @@ class MemosAttachmentView(HomeAssistantView):
             return web.Response(status=500, text="Failed to retrieve attachment")
 
 
+class MemosUploadView(HomeAssistantView):
+    """View to upload an image or attachment file to Memos."""
+
+    url = "/api/memos/upload"
+    name = "api:memos:upload"
+    requires_auth = True
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        """Initialize the view."""
+        self.hass = hass
+
+    async def post(self, request: web.Request) -> web.Response:
+        """Handle POST file upload."""
+        entries = self.hass.data.get(DOMAIN, {})
+        if not entries:
+            return self.json({"error": "Memos is not configured"}, status=400)
+
+        client: MemosApiClient = next(iter(entries.values()))
+
+        # Check if multipart or JSON base64
+        if request.content_type.startswith("multipart/"):
+            reader = await request.multipart()
+            part = await reader.next()
+            if not part:
+                return self.json({"error": "No file uploaded"}, status=400)
+
+            filename = part.filename or "image.png"
+            content_type = part.headers.get("Content-Type", "image/png")
+            data = await part.read(decode=False)
+        else:
+            try:
+                body = await request.json()
+                import base64
+                filename = body.get("filename", "image.png")
+                content_type = body.get("content_type", "image/png")
+                b64_data = body.get("data", "")
+                data = base64.b64decode(b64_data)
+            except Exception as err:
+                return self.json({"error": f"Invalid upload payload: {err}"}, status=400)
+
+        try:
+            res = await client.async_upload_resource(
+                filename=filename,
+                content_type=content_type,
+                data=data,
+            )
+            return self.json({"success": True, "resource": res})
+        except MemosApiError as err:
+            return self.json({"error": str(err)}, status=500)
+
+
 class MemosCreateView(HomeAssistantView):
     """View to create a new memo via frontend."""
 
@@ -126,13 +177,18 @@ class MemosCreateView(HomeAssistantView):
             return self.json({"error": "Invalid JSON body"}, status=400)
 
         content = (body.get("content") or "").strip()
-        if not content:
-            return self.json({"error": "Content cannot be empty"}, status=400)
+        resource_names = body.get("resource_names") or []
+        if not content and not resource_names:
+            return self.json({"error": "Content or image cannot be empty"}, status=400)
 
         visibility = body.get("visibility", "PRIVATE")
         client: MemosApiClient = next(iter(entries.values()))
         try:
-            memo = await client.async_create_memo(content=content, visibility=visibility)
+            memo = await client.async_create_memo(
+                content=content,
+                visibility=visibility,
+                resource_names=resource_names,
+            )
             return self.json({"success": True, "memo": memo})
         except MemosApiError as err:
             return self.json({"error": str(err)}, status=500)
@@ -252,6 +308,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if len(hass.data[DOMAIN]) == 1:
         hass.http.register_view(MemosFeedView(hass))
         hass.http.register_view(MemosAttachmentView(hass))
+        hass.http.register_view(MemosUploadView(hass))
         hass.http.register_view(MemosCreateView(hass))
         hass.http.register_view(MemosUpdateView(hass))
         hass.http.register_view(MemosDeleteView(hass))
@@ -266,7 +323,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             config={
                 "_panel_custom": {
                     "name": PANEL_NAME,
-                    "module_url": f"{PANEL_STATIC_PATH}/memos-panel.js?v=0.1.15",
+                    "module_url": f"{PANEL_STATIC_PATH}/memos-panel.js?v=0.2.1",
                 }
             },
             require_admin=False,

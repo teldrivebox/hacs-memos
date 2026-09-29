@@ -1,7 +1,7 @@
 {
   "domain": "memos",
   "name": "Memos",
-  "version": "0.1.15",
+  "version": "0.2.1",
   "codeowners": [],
   "config_flow": true,
   "documentation": "https://github.com/custom-components/hacs-memos",
