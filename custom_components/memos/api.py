@@ -205,9 +205,35 @@ class MemosApiClient:
         b64_content = base64.b64encode(data).decode("utf-8")
         last_error = None
 
-        # Strategy 1: Standard Memos v0.22+ REST endpoint (POST /api/v1/resources with flat JSON)
-        # In grpc-gateway, `body: "resource"` deserializes request body into Resource message
+        # Strategy 1: Standard Memos v0.22+ multipart upload (POST /api/v1/resources with form field 'file')
+        # Official Memos cURL API: curl -X POST ".../api/v1/resources" -F "file=@photo.png"
         url_resources = f"{self.base_url}/resources"
+        try:
+            form_res = aiohttp.FormData()
+            form_res.add_field(
+                name="file",
+                value=data,
+                filename=filename,
+                content_type=content_type,
+            )
+            async with self._session.post(
+                url_resources,
+                headers=headers_auth,
+                data=form_res,
+                timeout=aiohttp.ClientTimeout(total=60),
+            ) as resp:
+                if resp.status in (200, 201):
+                    res = await resp.json()
+                    _LOGGER.debug("Resource uploaded via POST /resources (multipart): %s", res)
+                    return res
+                text = await resp.text()
+                _LOGGER.debug("POST /resources (multipart) returned %s: %s", resp.status, text)
+                last_error = f"POST /resources multipart (HTTP {resp.status}): {text}"
+        except Exception as err:
+            _LOGGER.debug("POST /resources (multipart) error: %s", err)
+            last_error = f"POST /resources multipart error: {err}"
+
+        # Strategy 2: Memos REST endpoint with flat JSON (POST /api/v1/resources)
         try:
             payload_flat = {
                 "filename": filename,
