@@ -8,7 +8,8 @@
   <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-orange.svg" alt="HACS Custom" /></a>
   <a href="https://usememos.com"><img src="https://img.shields.io/badge/Memos-v0.22+-blue.svg" alt="Memos Support" /></a>
   <img src="https://img.shields.io/badge/version-0.1.15-green.svg" alt="Version" />
-  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" /></a>
+  <img src="https://img.shields.io/badge/Powered%20by-Antigravity-4285F4?logo=google&logoColor=white" alt="Powered by Antigravity" />
 </p>
 
 <p align="center">
@@ -130,5 +131,7 @@
 
 ---
 
-## 📄 License
-MIT License - 자유롭게 수정 및 배포하실 수 있습니다.
+## 📄 License & Credits
+- **License**: [MIT License](LICENSE) - 자유롭게 수정, 배포 및 이용하실 수 있습니다.
+- **Crafted with**: 이 프로젝트는 **Google Antigravity (안티그래비티)** AI 페어 프로그래밍으로 제작되었습니다.
+  *(Co-developed & crafted with Google Antigravity)*
