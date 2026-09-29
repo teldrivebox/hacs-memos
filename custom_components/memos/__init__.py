@@ -340,7 +340,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             config={
                 "_panel_custom": {
                     "name": PANEL_NAME,
-                    "module_url": f"{PANEL_STATIC_PATH}/memos-panel.js?v=0.2.2.b3",
+                    "module_url": f"{PANEL_STATIC_PATH}/memos-panel.js?v=0.2.3",
                 }
             },
             require_admin=False,

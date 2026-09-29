@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-orange.svg" alt="HACS Custom" /></a>
   <a href="https://usememos.com"><img src="https://img.shields.io/badge/Memos-v0.22+-blue.svg" alt="Memos Support" /></a>
-  <img src="https://img.shields.io/badge/version-0.2.2-green.svg" alt="Version" />
+  <img src="https://img.shields.io/badge/version-0.2.3-green.svg" alt="Version" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" /></a>
   <img src="https://img.shields.io/badge/Powered%20by-Antigravity-4285F4?logo=google&logoColor=white" alt="Powered by Antigravity" />
 </p>
@@ -29,6 +29,8 @@
 
 ### ✨ Features
 - **Sidebar Integration**: Automatically creates a dedicated **Memos** panel in the Home Assistant sidebar.
+- **Direct Photo & Image Upload**: Attach and upload multiple images directly from the Home Assistant composer via Memos Attachment API.
+- **Full-Screen Image Lightbox**: Click any image or thumbnail to open an elegant, high-resolution modal with backdrop blur, centered view, zoom cursor, and an intuitive 'X' close button (also closes on ESC or background click).
 - **Smart Markdown Composer**:
   - **Smart List Continuation**: Typing `- [ ] `, `- `, or `1. ` automatically continues on Enter. Pressing Enter on an empty line cleanly exits the list.
   - **Quick Formatting Toolbar**: Dedicated `#`, `##`, `###` heading buttons (with cyclic toggle/replace), `- [ ]` checklist, `#` tag, `**bold**`, `*italic*`, `inline code`, and `links`.
@@ -37,7 +39,6 @@
 - **Interactive Checklists**: Click `- [ ]` checkboxes directly in feed cards to toggle between pending and completed (`- [x]`) with instant server synchronization.
 - **Visibility Control**: Select between **Private (🔒 나만 보기)**, **Protected (👥 멤버 공개)**, or **Public (🌐 전체 공개)**. Automatically detects user defaults from Memos.
 - **Multi-user & Permissions**: Displays author badges (`@author`), highlights your own memos, and guards edit/delete operations according to your user role.
-- **Photo & Image Gallery**: Supports external markdown links and securely proxies internal attachments.
 - **Zero Heavy Bundles**: Built with pure native Web Components inside Shadow DOM for maximum speed and HA theme compatibility.
 
 ---
@@ -71,7 +72,8 @@
 ---
 
 ### 🗺️ Roadmap
-- [x] 📎 Upload images directly from the HA composer (v0.2.1)
+- [x] 📎 Upload images directly from the HA composer (v0.2.3)
+- [x] 🔍 Image Lightbox modal & preview (v0.2.3)
 - [ ] 📊 Lovelace Dashboard Card & Sensor entities (`sensor.memos_total_count`, recent memos)
 - [ ] 🔔 Notification & Automation service (`memos.create` service call)
 - [ ] 🏷️ Tag filtering chips & search
@@ -82,6 +84,8 @@
 
 ### ✨ 주요 기능
 - **사이드바 메뉴 자동 등록**: 복잡한 YAML 설정 없이 통합구성요소 추가만으로 왼쪽 사이드바에 Memos 전용 패널이 자동 생성됩니다.
+- **📸 사진 및 이미지 직접 첨부/업로드**: 에디터 하단 툴바의 사진 아이콘을 눌러 로컬 기기의 사진을 여러 장 선택하고 Memos 서버로 바로 업로드할 수 있습니다 (미리보기 썸네일 및 삭제 기능 지원).
+- **🔍 풀스크린 고화질 이미지 라이트박스 (Modal)**: 피드나 썸네일 이미지를 클릭하면 어두운 블러 배경과 함께 대형 원본 이미지 팝업이 뜨며, 우측 상단 `✕` 닫기 버튼, `ESC` 키, 또는 배경 클릭으로 손쉽게 닫을 수 있습니다.
 - **경량 스마트 마크다운 에디터**:
   - **스마트 리스트 자동 연장**: `- [ ] `, `- `, `1. ` 입력 후 Enter를 치면 다음 줄에 자동으로 이어집니다. 빈 줄에서 Enter 입력 시 깔끔하게 목록을 종료합니다.
   - **퀵 서식 툴바**: `#`, `##`, `###` 전용 제목 버튼(레벨 교체 및 토글 해제 지원), `- [ ]` 체크리스트, `#` 태그, `**굵게**`, `*기울임*`, `코드`, `링크` 버튼 탑재.
@@ -90,7 +94,6 @@
 - **인터랙티브 체크박스 클릭 토글**: 피드 카드에 적힌 `- [ ]` 할 일 목록을 클릭하면 즉시 체크(`- [x]`)로 전환되며 Memos 서버에 실시간 동기화됩니다.
 - **공개 범위 설정**: **🔒 나만 보기**, **👥 멤버 공개**, **🌐 전체 공개**를 선택할 수 있으며, Memos 계정에 설정된 기본 공개 범위를 자동으로 불러옵니다.
 - **다중 사용자 및 권한 보호**: 작성자 표시(`@homeassistant (나)`, `@member`)와 권한에 따른 수정/삭제 버튼 보호(작성자 또는 관리자).
-- **이미지 갤러리**: 메모에 첨부된 내부 파일 및 외부 이미지 링크를 반응형 그리드로 안전하게 출력합니다.
 - **초경량 웹 컴포넌트**: 외부 무거운 프레임워크 없이 순수 JavaScript와 Shadow DOM으로 제작되어 매우 가볍고 HA 다크/라이트 테마에 완벽히 적응합니다.
 
 ---
@@ -124,10 +127,22 @@
 ---
 
 ### 🗺️ 향후 개발 로드맵
-- [x] 📎 HA 에디터에서 이미지 직접 업로드 기능 (v0.2.1 완료)
+- [x] 📎 HA 에디터에서 이미지 직접 업로드 기능 (v0.2.3 완료)
+- [x] 🔍 이미지 라이트박스(Lightbox Modal) 확대 보기 (v0.2.3 완료)
 - [ ] 📊 Lovelace 대시보드 카드 및 메모 카운트/최근 메모 센서 (`sensor.memos_*`)
 - [ ] 🔔 HA 자동화용 알림 서비스 등록 (`memos.create` 서비스)
 - [ ] 🏷️ 태그 칩 필터링 및 실시간 검색 기능
+
+---
+
+## 🚀 Changelog (변경 이력)
+
+### [v0.2.3] - 2026-09-29
+- 📸 **Direct Image Attachment**: Memos API (`/api/v1/attachments`) 연동으로 HA 에디터에서 사진 직접 선택 및 업로드 지원
+- 🔍 **Image Lightbox Modal**: 메모 피드 및 썸네일 이미지 클릭 시 전체화면 고화질 팝업 확대 보기 지원 (X 닫기 버튼, ESC 키, 배경 클릭 닫기)
+- 🛡️ **Fix HA Attachment Proxy**: HA 프론트엔드 이미지 태그에서 401 Unauthorized / 500 에러 없이 첨부파일을 안전하게 렌더링하도록 백엔드 프록시 수정
+- ✍️ **Smart Composer & Markdown Toolbar**: H1~H3 순환 토글 제목, 체크리스트, 볼드, 이탤릭, 인라인 코드, 링크, 태그 버튼 추가
+- 🗂️ **Interactive Checklist**: 피드 카드에서 `- [ ]` 클릭 시 즉시 `- [x]`로 토글 및 서버 실시간 동기화
 
 ---
 

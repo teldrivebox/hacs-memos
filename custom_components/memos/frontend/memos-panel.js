@@ -1,4 +1,4 @@
-console.info("[Memos] Panel loaded v0.2.2.b3 with Image Lightbox Modal & Smart Composer");
+console.info("[Memos] Panel loaded v0.2.3 with Image Lightbox Modal & Smart Composer");
 
 class MemosPanel extends HTMLElement {
   constructor() {
