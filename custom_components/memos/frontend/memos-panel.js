@@ -1,4 +1,4 @@
-console.info("[Memos] Panel loaded v0.2.3 with Image Lightbox Modal & Smart Composer");
+console.info("[Memos] Panel loaded v0.2.4.b1 with Checkbox Permission Guard");
 
 class MemosPanel extends HTMLElement {
   constructor() {
@@ -312,6 +312,23 @@ class MemosPanel extends HTMLElement {
     const memo = this._memos.find((m) => m.name === name);
     if (!memo) return;
 
+    // Guard: Only allow author or admin to toggle tasks
+    const creatorUsername = (memo.creator || "").replace(/^users\//, "");
+    const myUsername = this._user ? (this._user.username || "") : "";
+    const isMe = Boolean(
+      this._user && (
+        (memo.creator && memo.creator === this._user.name) ||
+        (creatorUsername && creatorUsername === myUsername)
+      )
+    );
+    const isAdmin = Boolean(
+      this._user && (this._user.role === "ADMIN" || this._user.role === "HOST")
+    );
+    if (!isMe && !isAdmin) {
+      alert("작성자 본인만 체크박스를 변경할 수 있습니다.");
+      return;
+    }
+
     const originalContent = memo.content || "";
 
     // Split lines by newline
@@ -405,16 +422,20 @@ class MemosPanel extends HTMLElement {
       // Checkbox lines (- [ ] or - [x] or * [ ] or * [x])
       if (/^[-*]\s+\[\s\]\s+(.*)$/.test(trimmed)) {
         const itemText = trimmed.replace(/^[-*]\s+\[\s\]\s+/, "");
+        const clickClass = canManage ? "clickable" : "readonly";
+        const titleText = canManage ? "클릭하여 완료 토글" : "작성자만 체크박스를 변경할 수 있습니다";
         parsedLines.push(
-          `<div class="task-line clickable" data-memo="${memoName}" data-line="${i}" title="클릭하여 완료 토글"><span class="task-checkbox unchecked"></span><span>${this._formatInline(itemText)}</span></div>`
+          `<div class="task-line ${clickClass}" ${canManage ? `data-memo="${memoName}" data-line="${i}"` : ""} title="${titleText}"><span class="task-checkbox unchecked"></span><span>${this._formatInline(itemText)}</span></div>`
         );
         isFirstLine = false;
         continue;
       }
       if (/^[-*]\s+\[[xX]\]\s+(.*)$/.test(trimmed)) {
         const itemText = trimmed.replace(/^[-*]\s+\[[xX]\]\s+/, "");
+        const clickClass = canManage ? "clickable" : "readonly";
+        const titleText = canManage ? "클릭하여 미완료 토글" : "작성자만 체크박스를 변경할 수 있습니다";
         parsedLines.push(
-          `<div class="task-line checked clickable" data-memo="${memoName}" data-line="${i}" title="클릭하여 미완료 토글"><span class="task-checkbox checked">✓</span><span class="task-text-done">${this._formatInline(itemText)}</span></div>`
+          `<div class="task-line checked ${clickClass}" ${canManage ? `data-memo="${memoName}" data-line="${i}"` : ""} title="${titleText}"><span class="task-checkbox checked">✓</span><span class="task-text-done">${this._formatInline(itemText)}</span></div>`
         );
         isFirstLine = false;
         continue;
@@ -1178,6 +1199,16 @@ class MemosPanel extends HTMLElement {
 
         .task-line.clickable:hover .task-checkbox:not(.checked) {
           border-color: var(--primary-color, #0288d1);
+        }
+
+        .task-line.readonly {
+          cursor: default;
+          user-select: text;
+        }
+
+        .task-line.readonly .task-checkbox {
+          cursor: default;
+          opacity: 0.65;
         }
 
         .task-checkbox {
