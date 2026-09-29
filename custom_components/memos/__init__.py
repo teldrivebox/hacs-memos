@@ -122,28 +122,36 @@ class MemosUploadView(HomeAssistantView):
 
         client: MemosApiClient = next(iter(entries.values()))
 
-        # Check if multipart or JSON base64
-        if request.content_type.startswith("multipart/"):
-            reader = await request.multipart()
-            part = await reader.next()
-            if not part:
-                return self.json({"error": "No file uploaded"}, status=400)
+        try:
+            filename = "image.png"
+            content_type = "image/png"
+            data: bytes = b""
 
-            filename = part.filename or "image.png"
-            content_type = part.headers.get("Content-Type", "image/png")
-            data = await part.read(decode=False)
-        else:
-            try:
+            # Check if multipart or JSON base64
+            if request.content_type.startswith("multipart/"):
+                reader = await request.multipart()
+                while True:
+                    part = await reader.next()
+                    if part is None:
+                        break
+                    if part.filename:
+                        filename = part.filename
+                        content_type = part.headers.get("Content-Type", "image/png")
+                        data = await part.read()
+                        break
+            else:
                 body = await request.json()
                 import base64
                 filename = body.get("filename", "image.png")
                 content_type = body.get("content_type", "image/png")
                 b64_data = body.get("data", "")
+                if "," in b64_data:
+                    b64_data = b64_data.split(",", 1)[1]
                 data = base64.b64decode(b64_data)
-            except Exception as err:
-                return self.json({"error": f"Invalid upload payload: {err}"}, status=400)
 
-        try:
+            if not data:
+                return self.json({"error": "No file data received"}, status=400)
+
             res = await client.async_upload_resource(
                 filename=filename,
                 content_type=content_type,
@@ -151,7 +159,11 @@ class MemosUploadView(HomeAssistantView):
             )
             return self.json({"success": True, "resource": res})
         except MemosApiError as err:
+            _LOGGER.error("Memos API upload error: %s", err)
             return self.json({"error": str(err)}, status=500)
+        except Exception as err:
+            _LOGGER.exception("Unexpected error uploading file to Memos: %s", err)
+            return self.json({"error": f"Internal upload error: {err}"}, status=500)
 
 
 class MemosCreateView(HomeAssistantView):
@@ -323,7 +335,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             config={
                 "_panel_custom": {
                     "name": PANEL_NAME,
-                    "module_url": f"{PANEL_STATIC_PATH}/memos-panel.js?v=0.2.1",
+                    "module_url": f"{PANEL_STATIC_PATH}/memos-panel.js?v=0.2.2",
                 }
             },
             require_admin=False,

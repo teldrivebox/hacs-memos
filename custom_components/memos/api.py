@@ -198,54 +198,120 @@ class MemosApiClient:
         content_type: str,
         data: bytes,
     ) -> dict[str, Any]:
-        """Upload a file resource/attachment to Memos."""
+        """Upload a file resource/attachment to Memos across different Memos versions."""
+        import base64
+
+        headers_auth = {"Authorization": f"Bearer {self._token}"}
+        b64_content = base64.b64encode(data).decode("utf-8")
+        last_error = None
+
+        # Strategy 1: Standard Memos v0.22+ REST endpoint (POST /api/v1/resources with flat JSON)
+        # In grpc-gateway, `body: "resource"` deserializes request body into Resource message
         url_resources = f"{self.base_url}/resources"
-        url_blob = f"{self.base_url}/resource/blob"
-        headers = {"Authorization": f"Bearer {self._token}"}
-
-        # Try standard /api/v1/resources first
-        form = aiohttp.FormData()
-        form.add_field(
-            name="file",
-            value=data,
-            filename=filename,
-            content_type=content_type,
-        )
-
         try:
+            payload_flat = {
+                "filename": filename,
+                "type": content_type,
+                "content": b64_content,
+            }
             async with self._session.post(
                 url_resources,
-                headers=headers,
-                data=form,
+                headers={**headers_auth, "Content-Type": "application/json"},
+                json=payload_flat,
                 timeout=aiohttp.ClientTimeout(total=60),
             ) as resp:
                 if resp.status in (200, 201):
-                    return await resp.json()
-                _LOGGER.debug(
-                    "POST /resources returned %s, trying fallback /resource/blob",
-                    resp.status,
-                )
-        except Exception as err:
-            _LOGGER.debug("POST /resources failed: %s, trying fallback", err)
-
-        # Fallback to /api/v1/resource/blob
-        form_fallback = aiohttp.FormData()
-        form_fallback.add_field(
-            name="file",
-            value=data,
-            filename=filename,
-            content_type=content_type,
-        )
-        async with self._session.post(
-            url_blob,
-            headers=headers,
-            data=form_fallback,
-            timeout=aiohttp.ClientTimeout(total=60),
-        ) as resp:
-            if resp.status not in (200, 201):
+                    res = await resp.json()
+                    _LOGGER.debug("Resource uploaded via POST /resources (flat): %s", res)
+                    return res
                 text = await resp.text()
-                raise MemosApiError(f"Upload failed (HTTP {resp.status}): {text}")
-            return await resp.json()
+                _LOGGER.debug("POST /resources (flat) returned %s: %s", resp.status, text)
+                last_error = f"POST /resources flat (HTTP {resp.status}): {text}"
+        except Exception as err:
+            _LOGGER.debug("POST /resources (flat) error: %s", err)
+            last_error = f"POST /resources flat error: {err}"
+
+        # Strategy 2: Memos v0.22+ with nested resource object (POST /api/v1/resources with {"resource": ...})
+        try:
+            payload_nested = {
+                "resource": {
+                    "filename": filename,
+                    "type": content_type,
+                    "content": b64_content,
+                }
+            }
+            async with self._session.post(
+                url_resources,
+                headers={**headers_auth, "Content-Type": "application/json"},
+                json=payload_nested,
+                timeout=aiohttp.ClientTimeout(total=60),
+            ) as resp:
+                if resp.status in (200, 201):
+                    res = await resp.json()
+                    _LOGGER.debug("Resource uploaded via POST /resources (nested): %s", res)
+                    return res
+                text = await resp.text()
+                _LOGGER.debug("POST /resources (nested) returned %s: %s", resp.status, text)
+                last_error = f"POST /resources nested (HTTP {resp.status}): {text}"
+        except Exception as err:
+            _LOGGER.debug("POST /resources (nested) error: %s", err)
+            last_error = f"POST /resources nested error: {err}"
+
+        # Strategy 3: Legacy multipart upload (POST /api/v1/resource/blob - Memos v0.18-v0.21)
+        url_blob = f"{self.base_url}/resource/blob"
+        try:
+            form_blob = aiohttp.FormData()
+            form_blob.add_field(
+                name="file",
+                value=data,
+                filename=filename,
+                content_type=content_type,
+            )
+            async with self._session.post(
+                url_blob,
+                headers=headers_auth,
+                data=form_blob,
+                timeout=aiohttp.ClientTimeout(total=60),
+            ) as resp:
+                if resp.status in (200, 201):
+                    res = await resp.json()
+                    _LOGGER.debug("Resource uploaded via POST /resource/blob: %s", res)
+                    return res
+                text = await resp.text()
+                _LOGGER.debug("POST /resource/blob returned %s: %s", resp.status, text)
+                last_error = f"POST /resource/blob (HTTP {resp.status}): {text}"
+        except Exception as err:
+            _LOGGER.debug("POST /resource/blob error: %s", err)
+            last_error = f"POST /resource/blob error: {err}"
+
+        # Strategy 4: Memos v0.24+ AttachmentService (POST /api/v1/attachments)
+        url_attachments = f"{self.base_url}/attachments"
+        try:
+            form_attach = aiohttp.FormData()
+            form_attach.add_field(
+                name="file",
+                value=data,
+                filename=filename,
+                content_type=content_type,
+            )
+            async with self._session.post(
+                url_attachments,
+                headers=headers_auth,
+                data=form_attach,
+                timeout=aiohttp.ClientTimeout(total=60),
+            ) as resp:
+                if resp.status in (200, 201):
+                    res = await resp.json()
+                    _LOGGER.debug("Resource uploaded via POST /attachments: %s", res)
+                    return res
+                text = await resp.text()
+                _LOGGER.debug("POST /attachments returned %s: %s", resp.status, text)
+                last_error = f"POST /attachments (HTTP {resp.status}): {text}"
+        except Exception as err:
+            _LOGGER.debug("POST /attachments error: %s", err)
+            last_error = f"POST /attachments error: {err}"
+
+        raise MemosApiError(f"Resource upload failed: {last_error}")
 
     async def async_create_memo(
         self,

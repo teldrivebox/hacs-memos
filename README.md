@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-orange.svg" alt="HACS Custom" /></a>
   <a href="https://usememos.com"><img src="https://img.shields.io/badge/Memos-v0.22+-blue.svg" alt="Memos Support" /></a>
-  <img src="https://img.shields.io/badge/version-0.2.1-green.svg" alt="Version" />
+  <img src="https://img.shields.io/badge/version-0.2.2-green.svg" alt="Version" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" /></a>
   <img src="https://img.shields.io/badge/Powered%20by-Antigravity-4285F4?logo=google&logoColor=white" alt="Powered by Antigravity" />
 </p>

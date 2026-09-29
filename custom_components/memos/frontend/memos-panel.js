@@ -1,4 +1,4 @@
-console.info("[Memos] Panel loaded v0.2.1 with Image Upload & Smart Composer");
+console.info("[Memos] Panel loaded v0.2.2 with Image Upload & Smart Composer");
 
 class MemosPanel extends HTMLElement {
   constructor() {
@@ -118,16 +118,40 @@ class MemosPanel extends HTMLElement {
           if (saveBtn) {
             saveBtn.innerText = `사진 업로드 (${i + 1}/${this._selectedFiles.length})...`;
           }
-          const formData = new FormData();
-          formData.append("file", file, file.name);
+
+          // Convert file to base64
+          const base64Data = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const res = reader.result;
+              const b64 = typeof res === "string" && res.includes(",") ? res.split(",")[1] : res;
+              resolve(b64);
+            };
+            reader.onerror = () => reject(new Error("파일 읽기 실패"));
+            reader.readAsDataURL(file);
+          });
 
           const uploadResp = await this._hass.fetchWithAuth("/api/memos/upload", {
             method: "POST",
-            body: formData,
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              filename: file.name,
+              content_type: file.type || "image/png",
+              data: base64Data,
+            }),
           });
 
           if (!uploadResp.ok) {
-            throw new Error(`사진 업로드 실패 (${uploadResp.status})`);
+            let errorMsg = `사진 업로드 실패 (${uploadResp.status})`;
+            try {
+              const errJson = await uploadResp.json();
+              if (errJson && errJson.error) {
+                errorMsg = errJson.error;
+              }
+            } catch (_) {}
+            throw new Error(errorMsg);
           }
 
           const uploadData = await uploadResp.json();
@@ -135,8 +159,12 @@ class MemosPanel extends HTMLElement {
             throw new Error(uploadData.error);
           }
 
-          if (uploadData.resource && uploadData.resource.name) {
-            uploadedResourceNames.push(uploadData.resource.name);
+          if (uploadData.resource) {
+            const res = uploadData.resource;
+            const rName = res.name || (res.id || res.uid ? `resources/${res.id || res.uid}` : null);
+            if (rName) {
+              uploadedResourceNames.push(rName);
+            }
           }
         }
       }

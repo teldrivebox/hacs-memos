@@ -1,11 +1,11 @@
 {
   "domain": "memos",
   "name": "Memos",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "codeowners": [],
   "config_flow": true,
-  "documentation": "https://github.com/custom-components/hacs-memos",
+  "documentation": "https://github.com/teldrivebox/hacs-memos",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/custom-components/hacs-memos/issues",
+  "issue_tracker": "https://github.com/teldrivebox/hacs-memos/issues",
   "requirements": []
 }
