@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Memos 연결 설정",
+        "description": "Memos 서버 주소와 Personal Access Token을 입력하세요.",
+        "data": {
+          "host": "서버 URL (예: http://192.168.1.100:5230)",
+          "access_token": "Personal Access Token (API Key)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Memos 서버에 연결할 수 없습니다. URL 및 네트워크 상태를 확인하세요.",
+      "invalid_auth": "인증에 실패했습니다. Access Token이 올바른지 확인하세요.",
+      "unknown": "알 수 없는 오류가 발생했습니다."
+    },
+    "abort": {
+      "already_configured": "해당 Memos 서버는 이미 설정되어 있습니다."
+    }
+  }
+}

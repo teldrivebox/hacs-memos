@@ -1,0 +1,36 @@
+# Documentation and internal design documents
+docs/
+*.md.bak
+
+# Python cache & artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE & Editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Home Assistant local test config (if run locally)
+config/
+.storage/
