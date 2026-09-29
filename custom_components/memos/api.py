@@ -77,6 +77,7 @@ class MemosApiClient:
             "Authorization": f"Bearer {self._token}",
             "Content-Type": "application/json",
             "Accept": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         }
 
     async def _request(
@@ -201,12 +202,45 @@ class MemosApiClient:
         """Upload a file resource/attachment to Memos across different Memos versions."""
         import base64
 
-        headers_auth = {"Authorization": f"Bearer {self._token}"}
+        headers_auth = {
+            "Authorization": f"Bearer {self._token}",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        }
+        headers_json = {
+            **headers_auth,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
         b64_content = base64.b64encode(data).decode("utf-8")
         last_error = None
 
-        # Strategy 1: Standard Memos v0.22+ multipart upload (POST /api/v1/resources with form field 'file')
-        # Official Memos cURL API: curl -X POST ".../api/v1/resources" -F "file=@photo.png"
+        # Strategy 1: Memos v0.23+ / v0.24+ AttachmentService (POST /api/v1/attachments with JSON)
+        # Verified working live: returns {"name": "attachments/...", "filename": ...}
+        url_attachments = f"{self.base_url}/attachments"
+        try:
+            payload_attach = {
+                "filename": filename,
+                "type": content_type,
+                "content": b64_content,
+            }
+            async with self._session.post(
+                url_attachments,
+                headers=headers_json,
+                json=payload_attach,
+                timeout=aiohttp.ClientTimeout(total=60),
+            ) as resp:
+                if resp.status in (200, 201):
+                    res = await resp.json()
+                    _LOGGER.debug("Resource uploaded via POST /attachments (JSON): %s", res)
+                    return res
+                text = await resp.text()
+                _LOGGER.debug("POST /attachments (JSON) returned %s: %s", resp.status, text)
+                last_error = f"POST /attachments (HTTP {resp.status}): {text}"
+        except Exception as err:
+            _LOGGER.debug("POST /attachments (JSON) error: %s", err)
+            last_error = f"POST /attachments error: {err}"
+
+        # Strategy 2: Memos v0.22+ multipart upload (POST /api/v1/resources with form field 'file')
         url_resources = f"{self.base_url}/resources"
         try:
             form_res = aiohttp.FormData()
@@ -233,7 +267,7 @@ class MemosApiClient:
             _LOGGER.debug("POST /resources (multipart) error: %s", err)
             last_error = f"POST /resources multipart error: {err}"
 
-        # Strategy 2: Memos REST endpoint with flat JSON (POST /api/v1/resources)
+        # Strategy 3: Memos REST endpoint with flat JSON (POST /api/v1/resources)
         try:
             payload_flat = {
                 "filename": filename,
@@ -242,7 +276,7 @@ class MemosApiClient:
             }
             async with self._session.post(
                 url_resources,
-                headers={**headers_auth, "Content-Type": "application/json"},
+                headers=headers_json,
                 json=payload_flat,
                 timeout=aiohttp.ClientTimeout(total=60),
             ) as resp:
@@ -257,33 +291,7 @@ class MemosApiClient:
             _LOGGER.debug("POST /resources (flat) error: %s", err)
             last_error = f"POST /resources flat error: {err}"
 
-        # Strategy 2: Memos v0.22+ with nested resource object (POST /api/v1/resources with {"resource": ...})
-        try:
-            payload_nested = {
-                "resource": {
-                    "filename": filename,
-                    "type": content_type,
-                    "content": b64_content,
-                }
-            }
-            async with self._session.post(
-                url_resources,
-                headers={**headers_auth, "Content-Type": "application/json"},
-                json=payload_nested,
-                timeout=aiohttp.ClientTimeout(total=60),
-            ) as resp:
-                if resp.status in (200, 201):
-                    res = await resp.json()
-                    _LOGGER.debug("Resource uploaded via POST /resources (nested): %s", res)
-                    return res
-                text = await resp.text()
-                _LOGGER.debug("POST /resources (nested) returned %s: %s", resp.status, text)
-                last_error = f"POST /resources nested (HTTP {resp.status}): {text}"
-        except Exception as err:
-            _LOGGER.debug("POST /resources (nested) error: %s", err)
-            last_error = f"POST /resources nested error: {err}"
-
-        # Strategy 3: Legacy multipart upload (POST /api/v1/resource/blob - Memos v0.18-v0.21)
+        # Strategy 4: Legacy multipart upload (POST /api/v1/resource/blob - Memos v0.18-v0.21)
         url_blob = f"{self.base_url}/resource/blob"
         try:
             form_blob = aiohttp.FormData()
@@ -310,33 +318,6 @@ class MemosApiClient:
             _LOGGER.debug("POST /resource/blob error: %s", err)
             last_error = f"POST /resource/blob error: {err}"
 
-        # Strategy 4: Memos v0.24+ AttachmentService (POST /api/v1/attachments)
-        url_attachments = f"{self.base_url}/attachments"
-        try:
-            form_attach = aiohttp.FormData()
-            form_attach.add_field(
-                name="file",
-                value=data,
-                filename=filename,
-                content_type=content_type,
-            )
-            async with self._session.post(
-                url_attachments,
-                headers=headers_auth,
-                data=form_attach,
-                timeout=aiohttp.ClientTimeout(total=60),
-            ) as resp:
-                if resp.status in (200, 201):
-                    res = await resp.json()
-                    _LOGGER.debug("Resource uploaded via POST /attachments: %s", res)
-                    return res
-                text = await resp.text()
-                _LOGGER.debug("POST /attachments returned %s: %s", resp.status, text)
-                last_error = f"POST /attachments (HTTP {resp.status}): {text}"
-        except Exception as err:
-            _LOGGER.debug("POST /attachments error: %s", err)
-            last_error = f"POST /attachments error: {err}"
-
         raise MemosApiError(f"Resource upload failed: {last_error}")
 
     async def async_create_memo(
@@ -351,7 +332,8 @@ class MemosApiClient:
             "visibility": visibility,
         }
         if resource_names:
-            # Multi-version compatibility: provide both resourceIdList and resources
+            # Multi-version compatibility: provide attachments (v0.24+), resources, and resourceIdList
+            payload["attachments"] = [{"name": r} for r in resource_names]
             payload["resources"] = [{"name": r} for r in resource_names]
             payload["resourceIdList"] = resource_names
 
