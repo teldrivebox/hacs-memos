@@ -54,9 +54,7 @@ class MemosFeedView(HomeAssistantView):
         client: MemosApiClient = next(iter(entries.values()))
         try:
             memos = await client.async_get_memos(page_size=100)
-            user = client.user
-            if not user:
-                user = await client.async_get_current_user()
+            user = await client.async_get_current_user()
 
             default_visibility = "PROTECTED"
             settings = await client.async_get_user_settings()
