@@ -179,19 +179,40 @@ class MemosApiClient:
             return data.get("memos", [])
         return []
 
-    async def async_get_raw_attachment(self, path: str) -> tuple[bytes, str]:
+    async def async_get_raw_attachment(self, path: str, filename: str | None = None) -> tuple[bytes, str]:
         """Fetch raw attachment file by relative or full path."""
-        if path.startswith(("http://", "https://")):
-            url = path
-        else:
-            clean_path = path.lstrip("/")
-            url = f"{self._host}/{clean_path}"
+        from urllib.parse import quote
 
-        headers = {"Authorization": f"Bearer {self._token}"}
-        async with self._session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=20)) as resp:
-            content_type = resp.headers.get("Content-Type", "application/octet-stream")
-            data = await resp.read()
-            return data, content_type
+        headers = {
+            "Authorization": f"Bearer {self._token}",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        }
+
+        clean_path = path.lstrip("/")
+        candidate_urls = []
+        if path.startswith(("http://", "https://")):
+            candidate_urls.append(path)
+        else:
+            if filename:
+                candidate_urls.append(f"{self._host}/file/{clean_path}/{quote(filename)}")
+                candidate_urls.append(f"{self._host}/file/{clean_path}/{filename}")
+            candidate_urls.append(f"{self._host}/file/{clean_path}/image.png")
+            candidate_urls.append(f"{self._host}/file/{clean_path}")
+            candidate_urls.append(f"{self._host}/{clean_path}")
+
+        for url in candidate_urls:
+            try:
+                async with self._session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=20)) as resp:
+                    if resp.status == 200:
+                        content_type = resp.headers.get("Content-Type", "application/octet-stream")
+                        # Skip HTML response if returned by SPA fallback
+                        if "html" not in content_type:
+                            data = await resp.read()
+                            return data, content_type
+            except Exception as err:
+                _LOGGER.debug("Candidate url %s failed: %s", url, err)
+
+        raise MemosApiError(f"Could not retrieve attachment binary for {path}")
 
     async def async_upload_resource(
         self,

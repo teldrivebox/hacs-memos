@@ -1,4 +1,4 @@
-console.info("[Memos] Panel loaded v0.2.2.b1 with Image Upload & Smart Composer");
+console.info("[Memos] Panel loaded v0.2.2.b2 with Image Upload & Smart Composer");
 
 class MemosPanel extends HTMLElement {
   constructor() {
@@ -1525,7 +1525,8 @@ class MemosPanel extends HTMLElement {
         if (att.externalLink) {
           images.push(att.externalLink);
         } else if (att.name) {
-          images.push(`/api/memos/attachment?path=${encodeURIComponent(att.name)}`);
+          const fn = att.filename ? `&filename=${encodeURIComponent(att.filename)}` : "";
+          images.push(`/api/memos/attachment?path=${encodeURIComponent(att.name)}${fn}`);
         }
       }
     }
@@ -1581,4 +1582,6 @@ class MemosPanel extends HTMLElement {
   }
 }
 
-customElements.define("memos-panel", MemosPanel);
+if (!customElements.get("memos-panel")) {
+  customElements.define("memos-panel", MemosPanel);
+}

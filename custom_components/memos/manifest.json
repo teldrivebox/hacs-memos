@@ -1,7 +1,7 @@
 {
   "domain": "memos",
   "name": "Memos",
-  "version": "0.2.2.b1",
+  "version": "0.2.2.b2",
   "codeowners": [],
   "config_flow": true,
   "documentation": "https://github.com/teldrivebox/hacs-memos",

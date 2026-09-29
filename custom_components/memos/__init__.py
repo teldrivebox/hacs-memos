@@ -78,7 +78,7 @@ class MemosAttachmentView(HomeAssistantView):
 
     url = "/api/memos/attachment"
     name = "api:memos:attachment"
-    requires_auth = True
+    requires_auth = False
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the view."""
@@ -91,13 +91,18 @@ class MemosAttachmentView(HomeAssistantView):
             return web.Response(status=400, text="Memos not configured")
 
         path = request.query.get("path")
+        filename = request.query.get("filename")
         if not path:
             return web.Response(status=400, text="Missing path parameter")
 
         client: MemosApiClient = next(iter(entries.values()))
         try:
-            data, content_type = await client.async_get_raw_attachment(path)
-            return web.Response(body=data, content_type=content_type)
+            data, content_type = await client.async_get_raw_attachment(path, filename)
+            return web.Response(
+                body=data,
+                content_type=content_type,
+                headers={"Cache-Control": "public, max-age=86400"},
+            )
         except Exception as err:
             _LOGGER.error("Failed to proxy memo attachment '%s': %s", path, err)
             return web.Response(status=500, text="Failed to retrieve attachment")
@@ -335,7 +340,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             config={
                 "_panel_custom": {
                     "name": PANEL_NAME,
-                    "module_url": f"{PANEL_STATIC_PATH}/memos-panel.js?v=0.2.2.b1",
+                    "module_url": f"{PANEL_STATIC_PATH}/memos-panel.js?v=0.2.2.b2",
                 }
             },
             require_admin=False,
