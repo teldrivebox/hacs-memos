@@ -47,7 +47,7 @@
 1. Open **HACS** in your Home Assistant instance.
 2. Click the three dots in the top right corner and select **Custom repositories**.
 3. Enter your repository URL:
-   - **Repository**: `https://github.com/<your-username>/hacs-memos`
+   - **Repository**: `https://github.com/teldrivebox/hacs-memos`
    - **Category**: `Integration`
 4. Click **Add**, find **Memos**, and click **Download**.
 5. Restart Home Assistant.
@@ -100,7 +100,7 @@
 1. Home Assistant에서 **HACS** 메뉴로 이동합니다.
 2. 우측 상단 메뉴(점 3개)를 누르고 **사용자 지정 저장소 (Custom repositories)**를 선택합니다.
 3. 저장소 주소를 입력합니다:
-   - **저장소 (Repository)**: `https://github.com/<깃허브-아이디>/hacs-memos`
+   - **저장소 (Repository)**: `https://github.com/teldrivebox/hacs-memos`
    - **종류 (Category)**: `통합구성요소 (Integration)`
 4. **추가**를 클릭한 후, 목록에 나타난 **Memos**를 찾아 **다운로드**를 클릭합니다.
 5. Home Assistant를 **재시작**합니다.
