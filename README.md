@@ -135,23 +135,6 @@
 
 ---
 
-## 🚀 Changelog (변경 이력)
-
-### [v0.2.4] - 2026-09-29
-- 🛡️ **Role & Permission Management**: 체크박스 토글 및 수정/삭제 권한을 메모 작성자 또는 Memos 관리자(ADMIN/HOST)로 엄격하게 보호
-- 🔄 **Real-Time Role Syncing**: Memos 웹에서 역할을 변경했을 때 HA 재시작 없이도 피드 로드 시 항상 최신 사용자 프로필 및 역할을 실시간 동기화
-- 🚫 **Read-only Checkbox UI**: 권한이 없는 타인의 메모 체크박스는 클릭 비활성화(`readonly`) 처리 및 명확한 툴팁(`작성자만 체크박스를 변경할 수 있습니다`) 제공
-- ⚡ **Graceful Exception Handling**: 권한 부족으로 인한 불필요한 403/500 서버 요청 사전 차단
-
-### [v0.2.3] - 2026-09-29
-- 📸 **Direct Image Attachment**: Memos API (`/api/v1/attachments`) 연동으로 HA 에디터에서 사진 직접 선택 및 업로드 지원
-- 🔍 **Image Lightbox Modal**: 메모 피드 및 썸네일 이미지 클릭 시 전체화면 고화질 팝업 확대 보기 지원 (X 닫기 버튼, ESC 키, 배경 클릭 닫기)
-- 🛡️ **Fix HA Attachment Proxy**: HA 프론트엔드 이미지 태그에서 401 Unauthorized / 500 에러 없이 첨부파일을 안전하게 렌더링하도록 백엔드 프록시 수정
-- ✍️ **Smart Composer & Markdown Toolbar**: H1~H3 순환 토글 제목, 체크리스트, 볼드, 이탤릭, 인라인 코드, 링크, 태그 버튼 추가
-- 🗂️ **Interactive Checklist**: 피드 카드에서 `- [ ]` 클릭 시 즉시 `- [x]`로 토글 및 서버 실시간 동기화
-
----
-
 ## 📄 License & Credits
 - **License**: [MIT License](LICENSE) - 자유롭게 수정, 배포 및 이용하실 수 있습니다.
 - **Crafted with**: 이 프로젝트는 **Google Antigravity (안티그래비티)** AI 페어 프로그래밍으로 제작되었습니다.
