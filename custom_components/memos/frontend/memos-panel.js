@@ -1,4 +1,4 @@
-console.info("[Memos] Panel loaded v0.2.4.b1 with Checkbox Permission Guard");
+console.info("[Memos] Panel loaded v0.2.4 with Image Lightbox & Permission Guard");
 
 class MemosPanel extends HTMLElement {
   constructor() {

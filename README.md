@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-orange.svg" alt="HACS Custom" /></a>
   <a href="https://usememos.com"><img src="https://img.shields.io/badge/Memos-v0.22+-blue.svg" alt="Memos Support" /></a>
-  <img src="https://img.shields.io/badge/version-0.2.3-green.svg" alt="Version" />
+  <img src="https://img.shields.io/badge/version-0.2.4-green.svg" alt="Version" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" /></a>
   <img src="https://img.shields.io/badge/Powered%20by-Antigravity-4285F4?logo=google&logoColor=white" alt="Powered by Antigravity" />
 </p>
@@ -136,6 +136,12 @@
 ---
 
 ## 🚀 Changelog (변경 이력)
+
+### [v0.2.4] - 2026-09-29
+- 🛡️ **Role & Permission Management**: 체크박스 토글 및 수정/삭제 권한을 메모 작성자 또는 Memos 관리자(ADMIN/HOST)로 엄격하게 보호
+- 🔄 **Real-Time Role Syncing**: Memos 웹에서 역할을 변경했을 때 HA 재시작 없이도 피드 로드 시 항상 최신 사용자 프로필 및 역할을 실시간 동기화
+- 🚫 **Read-only Checkbox UI**: 권한이 없는 타인의 메모 체크박스는 클릭 비활성화(`readonly`) 처리 및 명확한 툴팁(`작성자만 체크박스를 변경할 수 있습니다`) 제공
+- ⚡ **Graceful Exception Handling**: 권한 부족으로 인한 불필요한 403/500 서버 요청 사전 차단
 
 ### [v0.2.3] - 2026-09-29
 - 📸 **Direct Image Attachment**: Memos API (`/api/v1/attachments`) 연동으로 HA 에디터에서 사진 직접 선택 및 업로드 지원
