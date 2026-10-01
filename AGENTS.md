@@ -21,3 +21,19 @@
    - 모든 기능 검증과 테스트가 완료되면 `develop` 브랜치를 `main` 브랜치로 병합(Merge)합니다.
    - 정식 버전 번호를 올리고 Git 태그를 생성하여 `main`에 최종 푸시합니다.
    - 릴리즈 노트 작성을 위한 핵심 변경 사항을 사용자에게 정리하여 공유합니다.
+
+## 실서버 테스트 환경 및 배포 명령어
+
+채팅 세션이 초기화되거나 새 대화가 시작되어도 실서버 테스트를 즉시 수행할 수 있도록 서버 환경 정보를 기록합니다.
+
+- **SSH 접속 호스트**: `minipc`
+- **호스트 측 Home Assistant 경로**: `/opt/stacks/homeassistant/ha_config/custom_components/memos/`
+- **도커 컨테이너 이름**: `homeassistant`
+- **컨테이너 내부 경로**: `/config/custom_components/memos/`
+
+### 표준 배포 명령어
+코드 수정 후 다음 명령어로 실서버에 반영하고 Home Assistant를 재시작합니다:
+```bash
+scp -r custom_components/memos minipc:/tmp/memos_update
+ssh minipc "docker cp /tmp/memos_update/. homeassistant:/config/custom_components/memos/; docker exec homeassistant chmod -R 755 /config/custom_components/memos; docker exec homeassistant rm -rf /config/custom_components/memos/__pycache__; rm -rf /tmp/memos_update; docker restart homeassistant"
+```
