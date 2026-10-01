@@ -34,3 +34,6 @@ desktop.ini
 # Home Assistant local test config (if run locally)
 config/
 .storage/
+
+# Local agent private rules & test environment
+.agents/
