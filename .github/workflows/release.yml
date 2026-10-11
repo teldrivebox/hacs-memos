@@ -21,10 +21,20 @@ jobs:
           cd custom_components/memos
           zip -r ../../memos.zip .
 
+      - name: Check RELEASE_NOTES.md existence
+        id: notes_check
+        run: |
+          if [ -f "RELEASE_NOTES.md" ]; then
+            echo "has_notes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_notes=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ github.ref_name }}
+          body_path: ${{ steps.notes_check.outputs.has_notes == 'true' && 'RELEASE_NOTES.md' || '' }}
           generate_release_notes: true
           files: memos.zip
         env:
