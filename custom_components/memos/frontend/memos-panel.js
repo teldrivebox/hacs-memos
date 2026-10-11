@@ -1,4 +1,4 @@
-console.info("[Memos] Panel loaded v0.2.5.b2 with Precision Diff SWR Cache");
+console.info("[Memos] Panel loaded v0.2.5 with SWR Local Cache & Precision Diff");
 
 const MEMOS_CACHE_STORAGE_KEY = "ha_memos_feed_cache_v1";
 
