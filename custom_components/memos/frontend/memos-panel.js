@@ -1,4 +1,4 @@
-console.info("[Memos] Panel loaded v0.2.5.b1 with SWR Local Cache");
+console.info("[Memos] Panel loaded v0.2.5.b2 with Precision Diff SWR Cache");
 
 const MEMOS_CACHE_STORAGE_KEY = "ha_memos_feed_cache_v1";
 
@@ -115,6 +115,53 @@ class MemosPanel extends HTMLElement {
     }
   }
 
+  _hasMemosChanged(oldMemos, newMemos) {
+    if (!Array.isArray(oldMemos) || !Array.isArray(newMemos)) return true;
+    if (oldMemos.length !== newMemos.length) return true;
+
+    for (let i = 0; i < newMemos.length; i++) {
+      const o = oldMemos[i];
+      const n = newMemos[i];
+      if (!o || !n) return true;
+
+      // 식별자 비교 (name 또는 id 또는 uid)
+      const oId = o.name || o.id || o.uid;
+      const nId = n.name || n.id || n.uid;
+      if (oId !== nId) return true;
+
+      // 본문 내용 비교
+      if (o.content !== n.content) return true;
+
+      // 수정 시각 비교
+      const oTime = o.updateTime || o.updatedTs || o.displayTime || o.createTime;
+      const nTime = n.updateTime || n.updatedTs || n.displayTime || n.createTime;
+      if (oTime !== nTime) return true;
+
+      // 공개 범위 비교
+      if (o.visibility !== n.visibility) return true;
+
+      // 핀 고정 상태 비교
+      if (Boolean(o.pinned) !== Boolean(n.pinned)) return true;
+
+      // 첨부 리소스 개수 비교
+      const oRes = o.resources || o.resourceList || [];
+      const nRes = n.resources || n.resourceList || [];
+      if (oRes.length !== nRes.length) return true;
+    }
+
+    return false;
+  }
+
+  _hasUserChanged(oldUser, newUser) {
+    if (!oldUser && !newUser) return false;
+    if (!oldUser || !newUser) return true;
+    return (
+      (oldUser.username || "") !== (newUser.username || "") ||
+      (oldUser.role || "") !== (newUser.role || "") ||
+      (oldUser.displayName || "") !== (newUser.displayName || "")
+    );
+  }
+
   async _fetchFeed(options = {}) {
     const isBackground = Boolean(options.background);
 
@@ -142,12 +189,13 @@ class MemosPanel extends HTMLElement {
       const newUser = data.user || null;
       const newDefaultVisibility = data.default_visibility || "PROTECTED";
 
-      // 데이터 변경 여부 검사
-      const isChanged =
-        JSON.stringify(this._memos) !== JSON.stringify(newMemos) ||
-        JSON.stringify(this._user) !== JSON.stringify(newUser) ||
-        this._defaultVisibility !== newDefaultVisibility ||
-        this._host !== newHost;
+      // 정밀 변경 감지: 실제 메모 목록, 사용자 프로필, 기본 공개설정의 변화 확인
+      const memosChanged = this._hasMemosChanged(this._memos, newMemos);
+      const userChanged = this._hasUserChanged(this._user, newUser);
+      const visChanged = this._defaultVisibility !== newDefaultVisibility;
+      const hostChanged = this._host !== newHost;
+
+      const isChanged = memosChanged || userChanged || visChanged || hostChanged;
 
       this._memos = newMemos;
       this._host = newHost;
@@ -160,10 +208,10 @@ class MemosPanel extends HTMLElement {
       }
       this._error = null;
 
-      // 캐시 최신화
+      // 캐시는 최신 데이터로 항상 갱신
       this._saveFeedCache();
 
-      // 변경 사항이 있거나 포그라운드 로딩인 경우 화면 갱신
+      // 실제 변경이 발생했거나, 포그라운드(최초 또는 새로고침 버튼) 로딩인 경우에만 리렌더링
       if (isChanged || !isBackground) {
         this._render();
       }
