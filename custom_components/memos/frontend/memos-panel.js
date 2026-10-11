@@ -1,4 +1,6 @@
-console.info("[Memos] Panel loaded v0.2.4 with Image Lightbox & Permission Guard");
+console.info("[Memos] Panel loaded v0.2.5.b1 with SWR Local Cache");
+
+const MEMOS_CACHE_STORAGE_KEY = "ha_memos_feed_cache_v1";
 
 class MemosPanel extends HTMLElement {
   constructor() {
@@ -9,6 +11,7 @@ class MemosPanel extends HTMLElement {
     this._defaultVisibility = "PROTECTED";
     this._currentVisibility = "PROTECTED";
     this._loading = true;
+    this._syncing = false;
     this._submitting = false;
     this._error = null;
     this._draftContent = "";
@@ -42,18 +45,87 @@ class MemosPanel extends HTMLElement {
     this._render();
   }
 
+  _loadFeedCache() {
+    try {
+      const raw = localStorage.getItem(MEMOS_CACHE_STORAGE_KEY);
+      if (!raw) return false;
+      const cached = JSON.parse(raw);
+      if (!cached || !Array.isArray(cached.memos)) return false;
+
+      this._memos = cached.memos;
+      this._host = cached.host || "";
+      this._user = cached.user || null;
+      if (cached.default_visibility) {
+        this._defaultVisibility = cached.default_visibility;
+        if (!this._editingMemoName) {
+          this._currentVisibility = this._defaultVisibility;
+        }
+      }
+      this._loading = false;
+      return true;
+    } catch (e) {
+      console.warn("[Memos] Failed to read feed cache:", e);
+      return false;
+    }
+  }
+
+  _saveFeedCache() {
+    try {
+      const payload = {
+        memos: this._memos,
+        host: this._host,
+        user: this._user,
+        default_visibility: this._defaultVisibility,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(MEMOS_CACHE_STORAGE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      console.warn("[Memos] Failed to save feed cache:", e);
+    }
+  }
+
   set hass(hass) {
     this._hass = hass;
     if (!this._initialized) {
       this._initialized = true;
-      this._fetchFeed();
+      const hasCache = this._loadFeedCache();
+      if (hasCache) {
+        // 캐시 데이터가 있으면 즉시 렌더링(0초) 후 백그라운드로 최신 피드 확인
+        this._render();
+        this._fetchFeed({ background: true });
+      } else {
+        // 캐시가 없는 첫 접속 시 로딩 스피너 표시
+        this._fetchFeed({ background: false });
+      }
     }
   }
 
-  async _fetchFeed() {
-    this._loading = true;
-    this._error = null;
-    this._render();
+  _updateSyncIndicator() {
+    const shadow = this.shadowRoot;
+    if (!shadow) return;
+    const bar = shadow.getElementById("sync-bar");
+    const refreshBtn = shadow.getElementById("refresh-btn");
+    if (bar) {
+      if (this._syncing) bar.classList.add("active");
+      else bar.classList.remove("active");
+    }
+    if (refreshBtn) {
+      if (this._syncing) refreshBtn.classList.add("spinning");
+      else refreshBtn.classList.remove("spinning");
+    }
+  }
+
+  async _fetchFeed(options = {}) {
+    const isBackground = Boolean(options.background);
+
+    if (!isBackground) {
+      this._loading = true;
+      this._error = null;
+      this._render();
+    } else {
+      this._syncing = true;
+      this._updateSyncIndicator();
+    }
 
     try {
       const response = await this._hass.fetchWithAuth("/api/memos/feed");
@@ -64,20 +136,51 @@ class MemosPanel extends HTMLElement {
       if (data.error) {
         throw new Error(data.error);
       }
-      this._memos = data.memos || [];
-      this._host = data.host || "";
-      this._user = data.user || null;
-      if (data.default_visibility) {
-        this._defaultVisibility = data.default_visibility;
+
+      const newMemos = data.memos || [];
+      const newHost = data.host || "";
+      const newUser = data.user || null;
+      const newDefaultVisibility = data.default_visibility || "PROTECTED";
+
+      // 데이터 변경 여부 검사
+      const isChanged =
+        JSON.stringify(this._memos) !== JSON.stringify(newMemos) ||
+        JSON.stringify(this._user) !== JSON.stringify(newUser) ||
+        this._defaultVisibility !== newDefaultVisibility ||
+        this._host !== newHost;
+
+      this._memos = newMemos;
+      this._host = newHost;
+      this._user = newUser;
+      if (newDefaultVisibility) {
+        this._defaultVisibility = newDefaultVisibility;
         if (!this._editingMemoName) {
           this._currentVisibility = this._defaultVisibility;
         }
       }
+      this._error = null;
+
+      // 캐시 최신화
+      this._saveFeedCache();
+
+      // 변경 사항이 있거나 포그라운드 로딩인 경우 화면 갱신
+      if (isChanged || !isBackground) {
+        this._render();
+      }
     } catch (err) {
-      this._error = err.message || "메모를 불러오는데 실패했습니다.";
+      if (!isBackground) {
+        this._error = err.message || "메모를 불러오는데 실패했습니다.";
+        this._render();
+      } else {
+        console.warn("[Memos] Background feed sync failed:", err);
+      }
     } finally {
       this._loading = false;
-      this._render();
+      this._syncing = false;
+      this._updateSyncIndicator();
+      if (!isBackground) {
+        this._render();
+      }
     }
   }
 
@@ -302,6 +405,7 @@ class MemosPanel extends HTMLElement {
       }
 
       this._memos = this._memos.filter((m) => m.name !== name);
+      this._saveFeedCache();
       this._render();
     } catch (err) {
       alert(`메모 삭제 중 오류: ${err.message}`);
@@ -346,6 +450,7 @@ class MemosPanel extends HTMLElement {
 
     const newContent = lines.join("\n");
     memo.content = newContent;
+    this._saveFeedCache();
     this._render(); // Immediate visual update
 
     try {
@@ -365,6 +470,7 @@ class MemosPanel extends HTMLElement {
       console.error("Failed to toggle checkbox:", err);
       alert(`체크박스 변경에 실패했습니다 (권한 없음 또는 서버 오류):\n${err.message}`);
       memo.content = originalContent;
+      this._saveFeedCache();
       this._render();
     }
   }
@@ -733,6 +839,36 @@ class MemosPanel extends HTMLElement {
 
         .menu-btn:hover, .refresh-btn:hover {
           background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        .refresh-btn.spinning svg {
+          animation: spin 1s linear infinite;
+        }
+
+        .sync-progress-bar {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          height: 2px;
+          background: linear-gradient(90deg, transparent, var(--primary-color, #0288d1), transparent);
+          background-size: 200% 100%;
+          animation: sync-loading 1.2s infinite linear;
+          display: none;
+        }
+
+        .sync-progress-bar.active {
+          display: block;
+        }
+
+        @keyframes sync-loading {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
         }
 
         .title {
@@ -1403,9 +1539,10 @@ class MemosPanel extends HTMLElement {
               : ""
           }
         </div>
-        <button class="refresh-btn" id="refresh-btn" title="Refresh">
+        <button class="refresh-btn ${this._syncing ? "spinning" : ""}" id="refresh-btn" title="새로고침">
           <svg viewBox="0 0 24 24"><path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/></svg>
         </button>
+        <div class="sync-progress-bar ${this._syncing ? "active" : ""}" id="sync-bar"></div>
       </div>
 
       <div class="feed-container">
@@ -1612,7 +1749,7 @@ class MemosPanel extends HTMLElement {
 
     // Event listeners
     const refreshBtn = shadow.getElementById("refresh-btn");
-    if (refreshBtn) refreshBtn.onclick = () => this._fetchFeed();
+    if (refreshBtn) refreshBtn.onclick = () => this._fetchFeed({ background: false });
 
     const menuBtn = shadow.getElementById("menu-btn");
     if (menuBtn) {
