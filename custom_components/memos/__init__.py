@@ -1,6 +1,7 @@
 """The Memos integration."""
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,16 @@ from .const import (
     PANEL_TITLE,
     PANEL_URL,
 )
+
+def _get_integration_version() -> str:
+    """Read version dynamically from manifest.json."""
+    manifest_path = Path(__file__).parent / "manifest.json"
+    try:
+        with open(manifest_path, encoding="utf-8") as fp:
+            return json.load(fp).get("version", "0.2.5")
+    except Exception:
+        return "0.2.5"
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -328,7 +339,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.http.register_view(MemosUpdateView(hass))
         hass.http.register_view(MemosDeleteView(hass))
 
-        # Register sidebar panel automatically
+        panel_version = _get_integration_version()
         frontend.async_register_built_in_panel(
             hass,
             component_name="custom",
@@ -338,7 +349,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             config={
                 "_panel_custom": {
                     "name": PANEL_NAME,
-                    "module_url": f"{PANEL_STATIC_PATH}/memos-panel.js?v=0.2.4",
+                    "module_url": f"{PANEL_STATIC_PATH}/memos-panel.js?v={panel_version}",
                 }
             },
             require_admin=False,
