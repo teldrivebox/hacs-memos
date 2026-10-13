@@ -1,6 +1,6 @@
-console.info("[Memos] Panel loaded v0.2.5 with SWR Local Cache & Precision Diff");
+console.info("[Memos] Panel loaded v0.2.6 with Autolink Support");
 
-const MEMOS_CACHE_STORAGE_KEY = "ha_memos_feed_cache_v1";
+const MEMOS_CACHE_STORAGE_KEY = "ha_memos_feed_cache_v2";
 
 class MemosPanel extends HTMLElement {
   constructor() {
@@ -657,14 +657,66 @@ class MemosPanel extends HTMLElement {
   }
 
   _formatInline(text) {
-    return text
+    if (!text) return "";
+
+    // 1. 코드 블록(`code`) 임시 보호
+    const codeBlocks = [];
+    let s = text.replace(/`([^`]+)`/g, (m, c) => {
+      codeBlocks.push(c);
+      return `___CODE_BLOCK_${codeBlocks.length - 1}___`;
+    });
+
+    const links = [];
+    // 2. 마크다운 링크: [text](url)
+    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, txt, url) => {
+      links.push(`<a href="${url}" target="_blank" rel="noopener" class="memo-link">${txt}</a>`);
+      return `___LINK_TOKEN_${links.length - 1}___`;
+    });
+
+    // 3. 앵글 브래킷 자동 링크: <https://...> 또는 HTML 이스케이프된 &lt;https://...&gt;
+    s = s.replace(/(?:&lt;|<)(https?:\/\/[^\s>&]+)(?:&gt;|>)/g, (m, url) => {
+      links.push(`<a href="${url}" target="_blank" rel="noopener" class="memo-link">${url}</a>`);
+      return `___LINK_TOKEN_${links.length - 1}___`;
+    });
+
+    // 4. 일반 순수 URL 자동 링크: https://... 또는 http://...
+    s = s.replace(/https?:\/\/[^\s<>\"]+/g, (rawUrl) => {
+      let url = rawUrl;
+      let trailing = "";
+      // 문장 끝 문장부호(. , : ; ! ?) 분리
+      const punctMatch = url.match(/([.,:;!?]+)$/);
+      if (punctMatch) {
+        trailing = punctMatch[1];
+        url = url.slice(0, -trailing.length);
+      }
+      // 괄호 안에 둘러싸인 URL인 경우 끝 괄호 분리
+      if (url.endsWith(")")) {
+        const openCount = (url.match(/\(/g) || []).length;
+        const closeCount = (url.match(/\)/g) || []).length;
+        if (closeCount > openCount) {
+          trailing = ")" + trailing;
+          url = url.slice(0, -1);
+        }
+      }
+      links.push(`<a href="${url}" target="_blank" rel="noopener" class="memo-link">${url}</a>`);
+      return `___LINK_TOKEN_${links.length - 1}___${trailing}`;
+    });
+
+    // 5. 링크 복원
+    s = s.replace(/___LINK_TOKEN_(\d+)___/g, (m, idx) => links[Number(idx)]);
+
+    // 6. 코드 블록 복원
+    s = s.replace(/___CODE_BLOCK_(\d+)___/g, (m, idx) => `<code class="inline-code">${codeBlocks[Number(idx)]}</code>`);
+
+    // 7. 인라인 스타일 및 해시태그 변환
+    s = s
       .replace(/\*\*\*(.*?)\*\*\*/g, "<strong><em>$1</em></strong>")
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.*?)\*/g, "<em>$1</em>")
       .replace(/~~(.*?)~~/g, "<del>$1</del>")
-      .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
-      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="memo-link">$1</a>')
       .replace(/(^|\s)#([a-zA-Z0-9_\uac00-\ud7a3]+)/g, '$1<span class="tag-badge">#$2</span>');
+
+    return s;
   }
 
   _autoResizeTextarea(inputEl) {
